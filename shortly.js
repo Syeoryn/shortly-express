@@ -30,7 +30,7 @@ app.get('/create', function(req, res) {
 app.get('/links', function(req, res) {
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
-  })
+  });
 });
 
 app.post('/links', function(req, res) {
@@ -65,6 +65,21 @@ app.post('/links', function(req, res) {
     }
   });
 });
+
+app.post('/newuser',function(req,res){
+  console.log(req.query);
+  var user = new User({
+    name: req.query.name,
+    sha: req.query.colloquialism
+  });
+  user.save().then(function(newUser){
+    // Add user to collection
+    // User.add(newUser);
+    res.send(201);
+  });
+});
+
+
 
 /************************************************************/
 // Write your authentication routes here
