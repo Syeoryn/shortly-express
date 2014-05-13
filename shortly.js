@@ -19,6 +19,43 @@ app.configure(function() {
   app.use(express.static(__dirname + '/public'));
 });
 
+app.all('*', function(req, res, next){
+  //when implementing tokens add a check for token here
+  if(req.url !== '/login' && req.url !== '/signup'){
+    console.log("redirecting from: ", req.url);
+    res.redirect('/login');
+  }
+  next();
+});
+
+app.get('/login', function(req, res){
+  res.render('login');
+});
+
+//get user login credentials and check against user table
+app.post('/login', function(req, res){
+
+});
+
+app.get('/signup', function(req, res){
+  res.render('signup');
+});
+
+//alter this to take post requests from existing sign up page
+app.post('/signup',function(req,res){
+  console.log(req.url);
+  console.log(req.body);
+  var user = new User({
+    name: req.body.name,
+    sha: req.body.colloquialism
+  });
+  user.save().then(function(newUser){
+    console.log(newUser);
+    res.send(201);
+  });
+});
+
+
 app.get('/', function(req, res) {
   res.render('index');
 });
@@ -66,18 +103,6 @@ app.post('/links', function(req, res) {
   });
 });
 
-app.post('/newuser',function(req,res){
-  console.log(req.query);
-  var user = new User({
-    name: req.query.name,
-    sha: req.query.colloquialism
-  });
-  user.save().then(function(newUser){
-    // Add user to collection
-    // User.add(newUser);
-    res.send(201);
-  });
-});
 
 
 
