@@ -92,8 +92,12 @@ app.get('/create', util.userLoggedIn, function(req, res) {
 });
 
 app.get('/links', util.userLoggedIn, function(req, res) {
-  Links.reset().fetch().then(function(links) {
-    res.send(200, links.models);
+  new User({name:req.session.user}).fetch().then(function(model){
+    Links.reset().query(function(qb){qb.where('user_id', '=', model.get('id'))}).fetch().then(function(links){
+      if(!!links){
+        res.send(200,links.models);
+      }
+    });
   });
 });
 
@@ -114,16 +118,18 @@ app.post('/links', util.userLoggedIn, function(req, res) {
           console.log('Error reading URL heading: ', err);
           return res.send(404);
         }
-
-        var link = new Link({
-          url: uri,
-          title: title,
-          base_url: req.headers.origin
-        });
-
-        link.save().then(function(newLink) {
-          Links.add(newLink);
-          res.send(200, newLink);
+        //fetch row of current user and set url.user_id = to user's id
+        new User({name: req.session.user}).fetch().then(function(model){
+          var link = new Link({
+            url: uri,
+            title: title,
+            base_url: req.headers.origin,
+            user_id: model.get('id')
+          });
+          link.save().then(function(newLink) {
+            Links.add(newLink);
+            res.send(200, newLink);
+          });
         });
       });
     }
