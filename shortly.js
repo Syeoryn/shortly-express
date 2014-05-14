@@ -1,7 +1,7 @@
 var express = require('express');
 var util = require('./lib/utility');
 var partials = require('express-partials');
-
+var bcrypt = require('bcrypt-nodejs');
 var db = require('./app/config');
 var Users = require('./app/collections/users');
 var User = require('./app/models/user');
@@ -17,15 +17,8 @@ app.configure(function() {
   app.use(partials());
   app.use(express.bodyParser())
   app.use(express.static(__dirname + '/public'));
-});
-
-app.all('*', function(req, res, next){
-  //when implementing tokens add a check for token here
-  if(req.url !== '/login' && req.url !== '/signup'){
-    console.log("redirecting from: ", req.url);
-    res.redirect('/login');
-  }
-  next();
+  app.use(express.cookieParser('5347869erghlkj348907dgfhiluA%'));
+  app.use(express.session());
 });
 
 app.get('/login', function(req, res){
@@ -34,7 +27,30 @@ app.get('/login', function(req, res){
 
 //get user login credentials and check against user table
 app.post('/login', function(req, res){
-
+  new User({name : req.body.username}).fetch().then(function(model){
+    //model undefined?
+    if(!model){
+      // yes --> redirect to login
+      console.log("login failed, redirecting");
+      res.redirect('/login');
+    } else {
+      // no --> hash password
+      var hash = model.get('sha');
+        // compare to sha
+      bcrypt.compare(req.body.password, hash, function(err,verified){
+          // equal --> redirect to index
+        if(verified){
+          req.session.regenerate(function(){
+            req.session.user = model.get('name');
+            res.redirect('/');
+          });
+          // !equal --> redirect to login
+        } else {
+          res.redirect('/login');
+        }
+      });
+    }
+  });
 });
 
 app.get('/signup', function(req, res){
@@ -43,34 +59,45 @@ app.get('/signup', function(req, res){
 
 //alter this to take post requests from existing sign up page
 app.post('/signup',function(req,res){
-  console.log(req.url);
-  console.log(req.body);
   var user = new User({
     name: req.body.name,
     sha: req.body.colloquialism
   });
-  user.save().then(function(newUser){
-    console.log(newUser);
-    res.send(201);
+  console.log('created new user');
+  //do lookup by userName, if exists, then alert user and redirect to signup
+  new User({name: req.body.name}).fetch().then(function(err,model){
+    if(err){return console.error(err);}
+    if(!!model){
+      res.redirect('/signup');
+    } else {
+      user.save().then(function(newUser){
+        res.send(201);
+      });
+    }
   });
 });
 
+app.get('/logout',util.userLoggedIn, function(req,res){
+  req.session.destroy(function(){
+    res.redirect('/login');
+  });
+});
 
-app.get('/', function(req, res) {
+app.get('/', util.userLoggedIn, function(req, res) {
   res.render('index');
 });
 
-app.get('/create', function(req, res) {
+app.get('/create', util.userLoggedIn, function(req, res) {
   res.render('index');
 });
 
-app.get('/links', function(req, res) {
+app.get('/links', util.userLoggedIn, function(req, res) {
   Links.reset().fetch().then(function(links) {
     res.send(200, links.models);
   });
 });
 
-app.post('/links', function(req, res) {
+app.post('/links', util.userLoggedIn, function(req, res) {
   var uri = req.body.url;
 
   if (!util.isValidUrl(uri)) {
